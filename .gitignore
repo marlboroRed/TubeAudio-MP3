@@ -1,0 +1,16 @@
+# Dependency
+node_modules/
+.next/
+out/
+backend/venv/
+
+# Temporary files
+backend/downloads/
+*.mp4
+*.mp3
+*.part
+*.exe
+
+# Environment
+.env
+.env.local
