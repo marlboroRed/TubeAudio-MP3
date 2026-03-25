@@ -99,10 +99,17 @@ export default function TubeAudioMP3() {
     setCustomFileName('');
   };
 
-  const getVId = (url: string) => {
+  const getVId = (inputUrl: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
+    const match = inputUrl.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  // ✅ 추가: 플레이리스트 파라미터 제거, 순수 영상 URL만 추출
+  const cleanUrl = (inputUrl: string) => {
+    const videoId = getVId(inputUrl);
+    if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
+    return inputUrl;
   };
 
   const fetchInfo = async () => {
@@ -112,8 +119,8 @@ export default function TubeAudioMP3() {
     setAudioQuality(''); 
     setVideoQuality('');
     try {
-      // ✅ localhost -> Railway 주소로 수정
-      const res = await fetch(`${API_BASE_URL}/info?url=${encodeURIComponent(url)}`);
+      // ✅ cleanUrl 적용
+      const res = await fetch(`${API_BASE_URL}/info?url=${encodeURIComponent(cleanUrl(url))}`);
       const data = await res.json();
       setVideoInfo(data);
       setRange({ start: 0, end: data.duration });
@@ -157,8 +164,9 @@ export default function TubeAudioMP3() {
     setDownloading(true);
     setProgress(5);
 
+    // ✅ cleanUrl 적용
     const queryParams = new URLSearchParams({
-      url: url,
+      url: cleanUrl(url),
       start: range.start.toString(),
       end: range.end.toString(),
       mode: mode,
@@ -166,7 +174,6 @@ export default function TubeAudioMP3() {
       filename: customFileName || "TubeAudio"
     });
 
-    // ✅ localhost -> Railway 주소로 수정
     const eventSource = new EventSource(`${API_BASE_URL}/progress?${queryParams.toString()}`);
     eventSource.onmessage = (event) => {
       const p = parseFloat(event.data);
@@ -177,7 +184,6 @@ export default function TubeAudioMP3() {
     const fakeProgress = setInterval(() => setProgress(prev => (prev < 98 ? prev + 0.3 : prev)), 800);
     
     try {
-      // ✅ Railway 주소 및 /download 경로 추가 수정
       const res = await fetch(`${API_BASE_URL}/download?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Download failed");
       
