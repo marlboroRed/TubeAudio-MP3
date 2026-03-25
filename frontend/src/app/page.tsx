@@ -174,7 +174,7 @@ export default function TubeAudioMP3() {
     const fakeProgress = setInterval(() => setProgress(prev => (prev < 98 ? prev + 0.3 : prev)), 800);
     
     try {
-      const res = await fetch(`http://localhost:8000/download?${queryParams.toString()}`);
+      const res = await fetch(`http://tubeaudio-mp3-production.up.railway.app${queryParams.toString()}`);
       if (!res.ok) throw new Error("Download failed");
       
       const blob = await res.blob();
