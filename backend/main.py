@@ -9,13 +9,9 @@ import uvicorn
 
 app = FastAPI()
 
-# 1. 이 부분을 수정했습니다! (Vercel 주소 허용)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://tube-audio-mp-3-three.vercel.app"  # 경헌님의 Vercel 주소 추가
-    ],
+    allow_origins=["*"],  # ✅ 모든 Vercel 주소 허용 (배포 주소 변경돼도 문제 없음)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -134,7 +130,6 @@ async def download(url: str, start: int, end: int, mode: str, quality: str, file
         progress_store[url] = "0"
         raise HTTPException(status_code=500, detail=str(e))
 
-# 2. 이 부분을 수정했습니다! (Railway 전용 포트 설정)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
