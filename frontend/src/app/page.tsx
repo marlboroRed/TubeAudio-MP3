@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Search, Loader2, AlertCircle, CheckCircle2, Circle, Mail, Phone } from 'lucide-react';
 
-// 🔥 쿠팡 다이나믹 배너 컴포넌트 (중복 제거 및 슬림화 버전)
+// 🔥 쿠팡 다이나믹 배너 컴포넌트
 const CoupangBanner = ({ id }: { id: string }) => {
   useEffect(() => {
     const scriptId = 'coupang-ads-script';
@@ -20,7 +20,6 @@ const CoupangBanner = ({ id }: { id: string }) => {
       if (!target) return;
 
       if (typeof window !== 'undefined' && (window as any).PartnersCoupang) {
-        // 1. 기존에 생성된 내용이 있다면 삭제 (중복 생성 방지)
         target.innerHTML = ''; 
 
         new (window as any).PartnersCoupang.G({
@@ -33,14 +32,13 @@ const CoupangBanner = ({ id }: { id: string }) => {
           "containerId": id 
         });
 
-        // 2. 외부로 튕겨나간 iframe이 있다면 현재 target으로 수집 (단, 1개만 유지)
         setTimeout(() => {
           const misplaced = document.querySelectorAll(`iframe[src*="coupang"]`);
           misplaced.forEach(el => {
             if (target && !target.contains(el)) {
               const otherContainer = el.closest('[id^="coupang-ads-"]');
               if (!otherContainer || otherContainer.id === id) {
-                 if (target.children.length > 0) el.remove(); // 이미 있으면 삭제
+                 if (target.children.length > 0) el.remove();
                  else target.appendChild(el);
               }
             }
@@ -84,6 +82,9 @@ export default function TubeAudioMP3() {
   const sliderRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<'start' | 'end' | null>(null);
 
+  // 🛠️ Railway 백엔드 주소 설정
+  const API_BASE_URL = "https://tubeaudio-mp3-production.up.railway.app";
+
   const currentQuality = mode === 'audio' ? audioQuality : videoQuality;
   const isHighQuality = mode === 'video' && (videoQuality === '720' || videoQuality === '1080');
 
@@ -111,7 +112,8 @@ export default function TubeAudioMP3() {
     setAudioQuality(''); 
     setVideoQuality('');
     try {
-      const res = await fetch(`http://localhost:8000/info?url=${encodeURIComponent(url)}`);
+      // ✅ localhost -> Railway 주소로 수정
+      const res = await fetch(`${API_BASE_URL}/info?url=${encodeURIComponent(url)}`);
       const data = await res.json();
       setVideoInfo(data);
       setRange({ start: 0, end: data.duration });
@@ -164,7 +166,8 @@ export default function TubeAudioMP3() {
       filename: customFileName || "TubeAudio"
     });
 
-    const eventSource = new EventSource(`http://localhost:8000/progress?${queryParams.toString()}`);
+    // ✅ localhost -> Railway 주소로 수정
+    const eventSource = new EventSource(`${API_BASE_URL}/progress?${queryParams.toString()}`);
     eventSource.onmessage = (event) => {
       const p = parseFloat(event.data);
       if (!isNaN(p)) setProgress((prev) => Math.max(prev, p));
@@ -174,7 +177,8 @@ export default function TubeAudioMP3() {
     const fakeProgress = setInterval(() => setProgress(prev => (prev < 98 ? prev + 0.3 : prev)), 800);
     
     try {
-      const res = await fetch(`http://tubeaudio-mp3-production.up.railway.app${queryParams.toString()}`);
+      // ✅ Railway 주소 및 /download 경로 추가 수정
+      const res = await fetch(`${API_BASE_URL}/download?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Download failed");
       
       const blob = await res.blob();
@@ -236,7 +240,6 @@ export default function TubeAudioMP3() {
           </button>
         </div>
 
-        {/* 검색 전 메인 하단 광고 */}
         {!videoInfo && (
           <div className="w-full max-w-2xl">
             <CoupangBanner id="coupang-ads-home" />
@@ -267,7 +270,7 @@ export default function TubeAudioMP3() {
 
               <div ref={sliderRef} className="relative h-4 bg-slate-100 rounded-full cursor-pointer select-none">
                 <div className="absolute h-full bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all" 
-                     style={{ left: `${(range.start / videoInfo.duration) * 100}%`, width: `${((range.end - range.start) / videoInfo.duration) * 100}%` }}></div>
+                      style={{ left: `${(range.start / videoInfo.duration) * 100}%`, width: `${((range.end - range.start) / videoInfo.duration) * 100}%` }}></div>
                 <div onMouseDown={() => setDragging('start')} onTouchStart={() => setDragging('start')} className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-white border-4 border-indigo-600 rounded-full shadow-xl z-30 flex items-center justify-center transition-transform ${dragging === 'start' ? 'scale-125' : 'hover:scale-110'}`} style={{ left: `${(range.start / videoInfo.duration) * 100}%` }}>
                   <div className="w-1 h-3 bg-indigo-100 rounded-full"></div>
                 </div>
@@ -347,7 +350,6 @@ export default function TubeAudioMP3() {
               {!currentQuality ? "SELECT QUALITY FIRST" : downloading ? "CONVERTING..." : "CONVERT NOW"}
             </button>
 
-            {/* 결과 하단 광고 */}
             <CoupangBanner id="coupang-ads-result" />
 
           </div>
