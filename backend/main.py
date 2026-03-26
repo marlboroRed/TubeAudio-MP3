@@ -11,7 +11,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ✅ 모든 Vercel 주소 허용 (배포 주소 변경돼도 문제 없음)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,6 +22,20 @@ if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
 progress_store = {}
+
+# 🔥 공통 유튜브 옵션 (차단 우회용)
+COMMON_YDL_OPTS = {
+    'quiet': True,
+    'no_warnings': True,
+    'nocheckcertificate': True,
+    # 실제 브라우저처럼 보이게 만드는 헤더들
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'referer': 'https://www.google.com/',
+    'add_header': [
+        'Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    ],
+}
 
 def progress_hook(d):
     url = d.get('info_dict', {}).get('webpage_url', 'unknown')
@@ -51,7 +65,8 @@ async def get_progress(url: str):
 
 @app.get("/info")
 async def get_info(url: str):
-    ydl_opts = {'quiet': True, 'noplaylist': True}
+    # 우회 옵션 적용
+    ydl_opts = {**COMMON_YDL_OPTS, 'noplaylist': True}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
@@ -60,7 +75,9 @@ async def get_info(url: str):
                 "duration": info.get('duration'),
                 "thumbnail": info.get('thumbnail'),
             }
-        except: raise HTTPException(status_code=400, detail="URL 확인 필요")
+        except Exception as e: 
+            print(f"Extraction Error: {str(e)}") # Railway 로그 확인용
+            raise HTTPException(status_code=400, detail="유튜브 접근 차단됨 또는 URL 오류")
 
 @app.get("/download")
 async def download(url: str, start: int, end: int, mode: str, quality: str, filename: str, background_tasks: BackgroundTasks):
@@ -72,7 +89,9 @@ async def download(url: str, start: int, end: int, mode: str, quality: str, file
     
     trim_args = ['-ss', str(start), '-to', str(end)]
     
+    # 우회 옵션과 다운로드 설정 병합
     ydl_opts = {
+        **COMMON_YDL_OPTS,
         'noplaylist': True,
         'prefer_ffmpeg': True,
         'progress_hooks': [progress_hook],
@@ -111,10 +130,13 @@ async def download(url: str, start: int, end: int, mode: str, quality: str, file
         
         actual_path = final_file
         if mode == 'audio' and not os.path.exists(final_file):
-            actual_path = os.path.join(DOWNLOAD_DIR, f"{unique_id}.mp3")
+            # 오디오 추출 후 실제 파일명 확인
+            audio_path = os.path.join(DOWNLOAD_DIR, f"{unique_id}.mp3")
+            if os.path.exists(audio_path):
+                actual_path = audio_path
 
         if not os.path.exists(actual_path):
-            raise Exception("File process failed")
+            raise Exception("파일 변환에 실패했습니다.")
             
         progress_store[url] = "100"
         download_name = f"{filename}_{quality}.{file_ext}"
@@ -128,6 +150,7 @@ async def download(url: str, start: int, end: int, mode: str, quality: str, file
         )
     except Exception as e:
         progress_store[url] = "0"
+        print(f"Download Error: {str(e)}") # 로그 확인용
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
